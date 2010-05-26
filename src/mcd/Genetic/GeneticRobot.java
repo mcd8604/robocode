@@ -8,12 +8,12 @@ import java.awt.geom.Point2D;
 import java.util.Random;
 
 import robocode.AdvancedRobot;
-import robocode.DeathEvent;
+import robocode.BattleEndedEvent;
+import robocode.HitByBulletEvent;
 import robocode.RobotStatus;
 import robocode.Rules;
 import robocode.ScannedRobotEvent;
 import robocode.StatusEvent;
-import robocode.WinEvent;
 import robocode.util.Utils;
 
 /**
@@ -52,7 +52,6 @@ public class GeneticRobot extends AdvancedRobot {
 		setBodyColor(Color.RED);
 		setAdjustRadarForGunTurn(true);
 		setAdjustGunForRobotTurn(true);
-		g.Start();
 		while(true) {
 			setTurnGunRightRadians(gunTurn);
 			setTurnRadarRightRadians(radarTurn);
@@ -132,15 +131,15 @@ public class GeneticRobot extends AdvancedRobot {
 	}
 	
 	@Override
-	public void onDeath(DeathEvent event) {
+	public void onBattleEnded(BattleEndedEvent event) {
 		g.Stop();
-		super.onDeath(event);
-	}
-	
-	@Override
-	public void onWin(WinEvent event) {
-		g.Stop();
-		super.onWin(event);
+		super.onBattleEnded(event);
 	}
 
+	@Override
+	public void onHitByBullet(HitByBulletEvent event) {
+		// TODO Auto-generated method stub
+		g.HitByBullet();
+		super.onHitByBullet(event);
+	}
 }

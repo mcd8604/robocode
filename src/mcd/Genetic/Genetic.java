@@ -36,7 +36,9 @@ public class Genetic {
 	private ArrayList<Node> nodes;
 	private Node currentNode = null;
 	private LinkedList<RobotAction> currentActionSequence;
-	private boolean running = false;
+	
+	private int bulletHitCount = 0;
+	private long nodeBeginTime;
 
 	// DEBUG PROPERTIES
 	private Integer epochCount = 0;
@@ -45,6 +47,7 @@ public class Genetic {
 
 	private AdvancedRobot robot;
 	private Random rand;
+	private Boolean initialized = false;
 
 	/**
 	 * Constructor
@@ -62,6 +65,8 @@ public class Genetic {
 			}
 			epochCount = 1;
 		}
+		nextNode(robot.getTime());
+		initialized = true;
 	}
 
 	private boolean loadPopulation() {
@@ -91,12 +96,12 @@ public class Genetic {
 			while (line != null) {
 				values = line.split(DELIMITER);
 				Node g = new Node();
-				for (int i = 1; i < values.length; i += 2) {
+				g.setFitness(Double.parseDouble(values[0]));
+				for (int i = 2; i < values.length; i += 2) {
 					g.addAction(new RobotAction(robot, Double
 							.parseDouble(values[i - 1]), Double
 							.parseDouble(values[i])));
-				}
-				
+				}				
 				nodes.add(g);
 				line = r.readLine();
 			}
@@ -130,10 +135,11 @@ public class Genetic {
 			s = new PrintStream(new RobocodeFileOutputStream(f));
 			s.println("EpochCount: " + epochCount);
 			s.println("NodeCount: " + nodeIndex);
-			for (Iterator<Node> gIter = nodes.iterator(); gIter.hasNext();) {
-				Node g = gIter.next();
-				LinkedList<RobotAction> actionSequence = g.getActionSequence();
+			for (Iterator<Node> nodeIter = nodes.iterator(); nodeIter.hasNext();) {
+				Node node = nodeIter.next();
+				LinkedList<RobotAction> actionSequence = node.getActionSequence();
 				StringBuilder sb = new StringBuilder();
+				sb.append(node.getFitness()+ DELIMITER);
 				for (Iterator<RobotAction> aIter = actionSequence.iterator(); aIter
 						.hasNext();) {
 					RobotAction a = aIter.next();
@@ -142,9 +148,9 @@ public class Genetic {
 				}
 				s.println(sb.toString());
 			}
-			//if (s.checkError()) {
-			//	throw new IOException("PrintStream error while saving genetic data!");
-			//}
+			if (s.checkError()) {
+				throw new IOException("PrintStream error while saving genetic data!");
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
@@ -169,26 +175,15 @@ public class Genetic {
 
 		return g;
 	}
-
-	public void Start() {
-		initPopulation();
-		//savePopulation();
-		if (nodes.size() > 0) {
-			running = true;
-			nextNode();
-		}
-	}
 	
 	public void Stop() {
-		running = false;
 		savePopulation();		
 	}
 
-	private void nextEpoch() {
-		running = false;
-		
+	private void nextEpoch(long time) {		
 		// TODO 1 - selection
-
+		doSelection();
+		
 		// 2 - crossover & mutation
 		// ArrayList<Node> nextGeneration = new ArrayList<Node>();
 
@@ -198,16 +193,15 @@ public class Genetic {
 		// nodes.clear();
 		// nodes.addAll(nextGeneration);
 		doCrossover(2);
-
-		// write to file
-		savePopulation();
 		
 		// start running first node
 		++epochCount;
 		nodeIndex = 0;
-		nextNode();
+		nextNode(time);
+	}
+	
+	private void doSelection() {
 		
-		running = true;
 	}
 
 	/*
@@ -269,35 +263,46 @@ public class Genetic {
 	 * return offspring; }
 	 */
 
-	private void nextNode() {
+	private void nextNode(long time) {
 		if (nodeIndex < nodes.size()) {
 			currentNode = nodes.get(nodeIndex++);
 			currentActionSequence = currentNode.getActionSequence();
 			actionIndex = 0;
-			nextAction();
+			bulletHitCount = 0;
+			nodeBeginTime = time;
+			nextAction(time);
 		} else {
-			nextEpoch();
+			nextEpoch(time);
 		}
 	}
 
-	private void nextAction() {
+	private void nextAction(long time) {
 		if (actionIndex < currentActionSequence.size()) {
 			currentActionSequence.get(actionIndex++).Run();
 			robot.execute();
 		} else {
-			// TODO evaluate fitness
-			nextNode();
+			// Evaluate fitness (in bullet hits per time)
+			currentNode.setFitness(bulletHitCount / (time - nodeBeginTime));			
+			nextNode(time);
 		}
 	}
 
 	public void UpdateStatus(RobotStatus s) {
+		if (!initialized)
+			initPopulation();
+		
+		long t = s.getTime();
+		
 		robot.setDebugProperty("EPOCH", epochCount.toString());
 		robot.setDebugProperty("NODE", nodeIndex.toString());
 		robot.setDebugProperty("ACTION", actionIndex.toString());
-		if (running)
-			if (s.getDistanceRemaining() == 0
-					&& s.getTurnRemainingRadians() == 0)
-				nextAction();
+		if (s.getDistanceRemaining() == 0
+				&& s.getTurnRemainingRadians() == 0)
+			nextAction(t);
+	}
+
+	public void HitByBullet() {
+		++bulletHitCount;
 	}
 
 }
