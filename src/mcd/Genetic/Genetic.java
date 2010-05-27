@@ -10,10 +10,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.SortedSet;
 
 import robocode.AdvancedRobot;
 import robocode.RobocodeFileOutputStream;
@@ -181,7 +183,7 @@ public class Genetic {
 	}
 
 	private void nextEpoch(long time) {		
-		// TODO 1 - selection
+		// 1 - selection
 		doSelection();
 		
 		// 2 - crossover & mutation
@@ -200,8 +202,52 @@ public class Genetic {
 		nextNode(time);
 	}
 	
+	/*
+	 * Performs fitness proportionate selection
+	 * 1 - Normalize fitness values 		
+	 * 2 - sort by descending fitness values.
+	 * 3 - Compute accumulated normalized fitness values.
+	 * 4 - Get cutoff value.
+	 * 5 - Select individuals whose accumulated normalized value 
+	 *		is greater than the cutoff value.
+	 */
 	private void doSelection() {
+		normalizeFitnessValues();
+		Collections.sort(nodes);
+		computeAccumulatedFitnessValues();
+		//TODO remove hardcoded cutoff
+		double cutoff = 0.5;		
+		ArrayList<Node> selectedNodes = new ArrayList<Node>();
+		Iterator<Node> iter = nodes.iterator();
+		while(iter.hasNext()) {
+			Node n = iter.next();
+			if(n.getFitness() > cutoff)
+				selectedNodes.add(n);
+		}
+	}
+	
+	private void computeAccumulatedFitnessValues() {
+		double sum = 0;
+		Iterator<Node> iter = nodes.iterator();
+		while(iter.hasNext()) {
+			Node n = iter.next();
+			sum += n.getFitness();
+			n.setFitness(sum);
+		}
+	}
+	
+	private void normalizeFitnessValues() {
+		double sum = 0;
 		
+		Iterator<Node> iter = nodes.iterator();
+		while(iter.hasNext())
+			sum += iter.next().getFitness();
+		
+		iter = nodes.iterator();
+		while(iter.hasNext()) {
+			Node n = iter.next();
+			n.setFitness(n.getFitness() / sum);
+		}
 	}
 
 	/*

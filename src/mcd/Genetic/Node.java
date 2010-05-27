@@ -3,7 +3,7 @@ package mcd.Genetic;
 import java.util.LinkedList;
 
 
-public class Node {
+public class Node implements Comparable {
 	private double fitness;
 	private LinkedList<RobotAction> actionSequence;
 
@@ -26,5 +26,11 @@ public class Node {
 
 	public void setFitness(double fitness) {
 		this.fitness = fitness;
+	}
+
+	@Override
+	public int compareTo(Object o) {
+		Node other = (Node)o;
+		return Double.compare(fitness, other.fitness);
 	}
 }
