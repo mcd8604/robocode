@@ -35,7 +35,8 @@ public class Genetic {
 	private static final String DATA_FILE_EXT = ".txt";
 	private static final String DELIMITER = " ";
 
-	private ArrayList<Node> nodes;
+	private ArrayList<Node> lastGeneration;
+	private ArrayList<Node> currentGeneration;
 	private Node currentNode = null;
 	private LinkedList<RobotAction> currentActionSequence;
 	
@@ -63,10 +64,10 @@ public class Genetic {
 	}
 
 	private void initPopulation() {
-		nodes = new ArrayList<Node>();
+		currentGeneration = new ArrayList<Node>();
 		if (!loadPopulation()) {
 			for (int i = 0; i < POPULATION_SIZE; ++i) {
-				nodes.add(getRandomizedNode());
+				currentGeneration.add(getRandomizedNode());
 			}
 			epochCount = 1;
 		}
@@ -103,14 +104,14 @@ public class Genetic {
 				Node g = new Node();
 				g.setFitness(Double.parseDouble(values[0]));
 				for (int i = 2; i < values.length; i += 2) {
-					g.addAction(new RobotAction(robot, Double
+					g.addAction(new RobotAction(Double
 							.parseDouble(values[i - 1]), Double
 							.parseDouble(values[i])));
 				}				
-				nodes.add(g);
+				currentGeneration.add(g);
 				line = r.readLine();
 			}
-			if(nodeIndex >= nodes.size())
+			if(nodeIndex >= currentGeneration.size())
 				nodeIndex = 0;
 			
 			r.close();
@@ -124,7 +125,7 @@ public class Genetic {
 	}
 
 	private void savePopulation() {
-		if(nodes == null || nodes.size() == 0) {
+		if(lastGeneration == null || lastGeneration.size() == 0) {
 			robot.out.println("Attempted to save data, but no nodes exist!");
 			return;
 		}
@@ -140,7 +141,7 @@ public class Genetic {
 			s = new PrintStream(new RobocodeFileOutputStream(f));
 			s.println("EpochCount: " + epochCount);
 			s.println("NodeCount: " + nodeIndex);
-			for (Iterator<Node> nodeIter = nodes.iterator(); nodeIter.hasNext();) {
+			for (Iterator<Node> nodeIter = lastGeneration.iterator(); nodeIter.hasNext();) {
 				Node node = nodeIter.next();
 				LinkedList<RobotAction> actionSequence = node.getActionSequence();
 				StringBuilder sb = new StringBuilder();
@@ -174,7 +175,7 @@ public class Genetic {
 		for (int i = 0; i < MIN_ACTIONS_PER_NODE; ++i) {
 			double d = (rand.nextDouble() - rand.nextDouble()) * MAX_DISTANCE;
 			double a = (rand.nextDouble() - rand.nextDouble()) * MAX_ANGLE;
-			RobotAction action = new RobotAction(robot, d, a);
+			RobotAction action = new RobotAction(d, a);
 			g.addAction(action);
 		}
 
@@ -186,8 +187,11 @@ public class Genetic {
 	}
 
 	private void nextEpoch(long time) {		
+		// First, back up the current completed generation to save later
+		lastGeneration = cloneGeneration(currentGeneration);
+		
 		// 1 - selection
-		doSelection();
+		ArrayList<Node> nextGeneration = doSelection();
 		
 		// 2 - crossover & mutation
 		// ArrayList<Node> nextGeneration = new ArrayList<Node>();
@@ -204,6 +208,20 @@ public class Genetic {
 		nodeIndex = 0;
 		nextNode(time);
 	}
+
+	private ArrayList<Node> cloneGeneration(ArrayList<Node> generation) {
+		ArrayList<Node> clonedGeneration = new ArrayList<Node>();
+		Iterator<Node> i = generation.iterator();
+		while(i.hasNext()) {
+			try {
+				clonedGeneration.add((Node)i.next().clone());
+			} catch (CloneNotSupportedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return clonedGeneration;
+	}
 	
 	/*
 	 * Performs fitness proportionate selection
@@ -214,24 +232,25 @@ public class Genetic {
 	 * 5 - Select individuals whose accumulated normalized value 
 	 *		is greater than the cutoff value.
 	 */
-	private void doSelection() {
+	private ArrayList<Node> doSelection() {
 		normalizeFitnessValues();
-		Collections.sort(nodes);
+		Collections.sort(currentGeneration);
 		computeAccumulatedFitnessValues();
 		//TODO remove hardcoded cutoff
 		double cutoff = 0.5;		
 		ArrayList<Node> selectedNodes = new ArrayList<Node>();
-		Iterator<Node> iter = nodes.iterator();
+		Iterator<Node> iter = currentGeneration.iterator();
 		while(iter.hasNext()) {
 			Node n = iter.next();
 			if(n.getFitness() > cutoff)
 				selectedNodes.add(n);
 		}
+		return selectedNodes;
 	}
 	
 	private void computeAccumulatedFitnessValues() {
 		double sum = 0;
-		Iterator<Node> iter = nodes.iterator();
+		Iterator<Node> iter = currentGeneration.iterator();
 		while(iter.hasNext()) {
 			Node n = iter.next();
 			sum += n.getFitness();
@@ -242,14 +261,15 @@ public class Genetic {
 	private void normalizeFitnessValues() {
 		double sum = 0;
 		
-		Iterator<Node> iter = nodes.iterator();
+		Iterator<Node> iter = currentGeneration.iterator();
 		while(iter.hasNext())
 			sum += iter.next().getFitness();
 		
-		iter = nodes.iterator();
+		iter = currentGeneration.iterator();
 		while(iter.hasNext()) {
 			Node n = iter.next();
-			n.setFitness(n.getFitness() / sum);
+			double f = n.getFitness() / sum;
+			n.setFitness(f);
 		}
 	}
 
@@ -260,10 +280,12 @@ public class Genetic {
 		if(numNodes <= 1)
 			return;
 
-		// TODO account for remainder of parents
+		// TODO account for remainder of parents		
+		// TODO clone actions instead of simply swapping sequences,
+		// TODO create enough offspring to maintain population 	
 		
-		for(int i = 0; i < nodes.size(); i+=numNodes) { 
-			 List<Node> parents = nodes.subList(i, i + numNodes);
+		for(int i = 0; i < currentGeneration.size(); i+=numNodes) { 
+			 List<Node> parents = currentGeneration.subList(i, i + numNodes);
 			 LinkedList<RobotAction> currentSubSequence = null;
 
 			 // each cut is spliced onto the next Node in list order
@@ -313,25 +335,34 @@ public class Genetic {
 	 */
 
 	private void nextNode(long time) {
-		if (nodeIndex < nodes.size()) {
-			currentNode = nodes.get(nodeIndex++);
+		if (nodeIndex < currentGeneration.size()) {
+			currentNode = currentGeneration.get(nodeIndex++);
 			currentActionSequence = currentNode.getActionSequence();
-			actionIndex = 0;
-			bulletHitCount = 0;
+			ResetNode();
 			nodeBeginTime = time;
 			nextAction(time);
 		} else {
 			nextEpoch(time);
 		}
 	}
+	
+	public void ResetNode() {
+		actionIndex = 0;
+		bulletHitCount = 0;
+		nodeBeginTime = 0;
+	}
 
 	private void nextAction(long time) {
 		if (actionIndex < currentActionSequence.size()) {
-			currentActionSequence.get(actionIndex++).Run();
-			robot.execute();
+			currentActionSequence.get(actionIndex++).Run(robot);
 		} else {
 			// Evaluate fitness (in bullet hits per time)
-			currentNode.setFitness(bulletHitCount / (time - nodeBeginTime));			
+			double f = (double)bulletHitCount / (time - nodeBeginTime);
+			robot.out.println("fitness = " + f);
+			robot.out.println("bulletHitCount = " + bulletHitCount);
+			robot.out.println("nodeBeginTime = " + nodeBeginTime);
+			robot.out.println("time = " + time);
+			currentNode.setFitness(f);			
 			nextNode(time);
 		}
 	}
