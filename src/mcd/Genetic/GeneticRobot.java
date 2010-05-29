@@ -11,6 +11,7 @@ import robocode.AdvancedRobot;
 import robocode.BattleEndedEvent;
 import robocode.HitByBulletEvent;
 import robocode.RobotStatus;
+import robocode.RoundEndedEvent;
 import robocode.Rules;
 import robocode.ScannedRobotEvent;
 import robocode.StatusEvent;
@@ -128,6 +129,12 @@ public class GeneticRobot extends AdvancedRobot {
 		RobotStatus s = e.getStatus();
 		g.UpdateStatus(s);
 		super.onStatus(e);
+	}
+	
+	@Override
+	public void onRoundEnded(RoundEndedEvent event) {
+		g.ResetNode();
+		super.onRoundEnded(event);
 	}
 	
 	@Override
