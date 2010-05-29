@@ -22,9 +22,7 @@ import robocode.util.Utils;
  */
 public class GeneticRobot extends AdvancedRobot {
 
-	private Random rand;
-
-	private Genetic g;
+	private static Genetic g;
 
 	// aiming
 	private double gunTurn;
@@ -32,7 +30,11 @@ public class GeneticRobot extends AdvancedRobot {
 	private double bulletSpeed;
 	private double bulletPower;
 	private double targetLastHeading;
-
+	
+	static {
+		g = new Genetic(Utils.getRandom());	
+	}
+	
 	/**
 	 * Constructor
 	 */
@@ -43,9 +45,7 @@ public class GeneticRobot extends AdvancedRobot {
 		bulletSpeed = Rules.getBulletSpeed(bulletPower);
 		targetLastHeading = 0;
 		
-		rand = Utils.getRandom();
-		
-		g = new Genetic(this, rand);		
+		g.SetRobot(this);
 	}
 
 	public void run() {
@@ -138,7 +138,6 @@ public class GeneticRobot extends AdvancedRobot {
 
 	@Override
 	public void onHitByBullet(HitByBulletEvent event) {
-		// TODO Auto-generated method stub
 		g.HitByBullet();
 		super.onHitByBullet(event);
 	}

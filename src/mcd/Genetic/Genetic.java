@@ -54,9 +54,12 @@ public class Genetic {
 	/**
 	 * Constructor
 	 */
-	public Genetic(AdvancedRobot robot, Random rand) {
-		this.robot = robot;
+	public Genetic(Random rand){
 		this.rand = rand;
+	}
+	
+	public void SetRobot(AdvancedRobot robot) {
+		this.robot = robot;
 	}
 
 	private void initPopulation() {
